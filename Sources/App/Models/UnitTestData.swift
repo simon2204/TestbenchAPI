@@ -8,6 +8,6 @@
 import Vapor
 
 struct UnitTestData: Content {
-    let testType: String
+    let testName: String
     let files: [File]
 }
