@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import TestbenchLib
 
 struct FileUploadController: RouteCollection {
     
@@ -14,7 +15,7 @@ struct FileUploadController: RouteCollection {
         availableTestsRoute.post(use: uploadHandler)
     }
     
-    func uploadHandler(_ req: Request) throws -> EventLoopFuture<String> {
+    func uploadHandler(_ req: Request) throws -> EventLoopFuture<TestResult> {
         let unitTestData = try req.content.decode(UnitTestData.self)
         
         let future = unitTestData.files.map { file -> EventLoopFuture<Void> in
@@ -22,8 +23,20 @@ struct FileUploadController: RouteCollection {
             return req.fileio.writeFile(file.data, at: path)
         }
         
-        return future.flatten(on: req.eventLoop).map {
-            return "Hallo"
+        return future.flatten(on: req.eventLoop).flatMap {
+            return performTests(assignmentName: unitTestData.testName, req)
+        }
+    }
+    
+    func performTests(assignmentName: String, _ req: Request) -> EventLoopFuture<TestResult> {
+        return req.application.threadPool.runIfActive(eventLoop: req.eventLoop) {
+            let testResult = Testbench.performTestsForSubmission(at: "/Users/Simon/Desktop/TestbenchDirectories/submission", forAssignmentWithName: assignmentName)
+            
+            print(testResult!)
+            
+            return testResult!
         }
     }
 }
+
+extension TestResult: Content {}
