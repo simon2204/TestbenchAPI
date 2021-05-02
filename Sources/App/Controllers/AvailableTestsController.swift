@@ -6,7 +6,7 @@
 //
 
 import Vapor
-import TestbenchLib
+import Testbench
 
 struct AvailableTestsController: RouteCollection {
     

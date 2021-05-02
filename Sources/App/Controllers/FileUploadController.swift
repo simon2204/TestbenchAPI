@@ -6,7 +6,7 @@
 //
 
 import Vapor
-import TestbenchLib
+import Testbench
 
 struct FileUploadController: RouteCollection {
     
@@ -15,21 +15,25 @@ struct FileUploadController: RouteCollection {
         availableTestsRoute.post(use: uploadHandler)
     }
     
-    func uploadHandler(_ req: Request) throws -> EventLoopFuture<TestResult> {
-        let unitTestData = try req.content.decode(UnitTestData.self)
-        
-        let future = unitTestData.files.map { file -> EventLoopFuture<Void> in
-            let path = req.application.directory.publicDirectory + file.filename
-            return req.fileio.writeFile(file.data, at: path)
-        }
-        
-        return future.flatten(on: req.eventLoop).flatMap {
-            return performTests(assignmentName: unitTestData.testName, req)
+    func uploadHandler(_ request: Request) throws -> EventLoopFuture<TestResult> {
+        let unitTestData = try request.content.decode(UnitTestData.self)
+        let future = writeFilesToSubmissionDirectory(files: unitTestData.files, request: request)
+        return future.flatMap {
+            performTests(assignmentName: unitTestData.testName, request)
         }
     }
     
-    func performTests(assignmentName: String, _ req: Request) -> EventLoopFuture<TestResult> {
-        return req.application.threadPool.runIfActive(eventLoop: req.eventLoop) {
+    func writeFilesToSubmissionDirectory(files: [File], request: Request) -> EventLoopFuture<Void> {
+        let future = files.map { file -> EventLoopFuture<Void> in
+            let path = request.application.directory.publicDirectory + file.filename
+            return request.fileio.writeFile(file.data, at: path)
+        }
+        
+        return future.flatten(on: request.eventLoop)
+    }
+    
+    func performTests(assignmentName: String, _ request: Request) -> EventLoopFuture<TestResult> {
+        return request.application.threadPool.runIfActive(eventLoop: request.eventLoop) {
             let testResult = Testbench.performTestsForSubmission(at: "/Users/Simon/Desktop/TestbenchDirectories/submission", forAssignmentWithName: assignmentName)
             
             print(testResult!)

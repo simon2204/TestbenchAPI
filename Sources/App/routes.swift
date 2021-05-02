@@ -1,5 +1,5 @@
 import Vapor
-import TestbenchLib
+import Testbench
 
 func routes(_ app: Application) throws {
     
