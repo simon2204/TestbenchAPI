@@ -10,36 +10,70 @@ import Testbench
 
 struct FileUploadController: RouteCollection {
     
+    static let testbenchDirectory = URL(
+        fileURLWithPath: "/Users/Simon/Desktop/TestbenchDirectories")
+    
+    static let config = testbenchDirectory
+        .appendingPathComponent("config.json")
+    
+    static let submission = testbenchDirectory
+        .appendingPathComponent("submission")
+    
+    
     func boot(routes: RoutesBuilder) throws {
         let availableTestsRoute = routes.grouped("api", "upload")
         availableTestsRoute.post(use: uploadHandler)
     }
     
+    
     func uploadHandler(_ request: Request) throws -> EventLoopFuture<TestResult> {
         let unitTestData = try request.content.decode(UnitTestData.self)
-        let future = writeFilesToSubmissionDirectory(files: unitTestData.files, request: request)
+        let directory = FileUploadController.submission.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        
+        let future = writeFilesToSubmissionDirectory(
+            files: unitTestData.files,
+            directory: directory,
+            request: request)
+        
         return future.flatMap {
-            performTests(assignmentName: unitTestData.testName, request)
+            let id = Int(unitTestData.assignmentId) ?? 0
+            return performTests(assignmentId: id, submission: directory, request)
         }
     }
     
-    func writeFilesToSubmissionDirectory(files: [File], request: Request) -> EventLoopFuture<Void> {
+    
+    func writeFilesToSubmissionDirectory(
+        files: [File],
+        directory: URL,
+        request: Request)
+    -> EventLoopFuture<Void> {
+
         let future = files.map { file -> EventLoopFuture<Void> in
-            let path = request.application.directory.publicDirectory + file.filename
-            return request.fileio.writeFile(file.data, at: path)
+            file.writeFileToDirectory(directory, request: request)
         }
         
         return future.flatten(on: request.eventLoop)
     }
     
-    func performTests(assignmentName: String, _ request: Request) -> EventLoopFuture<TestResult> {
-        return request.application.threadPool.runIfActive(eventLoop: request.eventLoop) {
-            let testResult = Testbench.performTestsForSubmission(at: "/Users/Simon/Desktop/TestbenchDirectories/submission", forAssignmentWithName: assignmentName)
+    
+    func performTests(assignmentId: Int, submission: URL, _ request: Request) -> EventLoopFuture<TestResult> {
+        let promise = request.eventLoop.makePromise(of: TestResult.self)
+     
+        DispatchQueue.global(qos: .background).async {
+            let testbench = Testbench(config: FileUploadController.config)
             
-            print(testResult!)
-            
-            return testResult!
+            do {
+                let testResult = try testbench.performTests(
+                    submission: submission,
+                    assignment: assignmentId)
+                promise.succeed(testResult)
+            } catch {
+                promise.fail(error)
+            }
         }
+        
+        return promise.futureResult
     }
 }
 

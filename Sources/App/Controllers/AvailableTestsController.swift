@@ -15,10 +15,21 @@ struct AvailableTestsController: RouteCollection {
         availableTestsRoute.get(use: getAllAvailableTestNames)
     }
     
-    func getAllAvailableTestNames(_ req: Request) throws -> EventLoopFuture<[String]> {
-        return req.application.threadPool.runIfActive(eventLoop: req.eventLoop) {
-            let testConfigurations = Testbench.findAllTestConfigurations()
-            return testConfigurations.map(\.name)
+    func getAllAvailableTestNames(_ req: Request) throws -> EventLoopFuture<[Assignment]> {
+        let promise = req.eventLoop.makePromise(of: [Assignment].self)
+        
+        DispatchQueue.global(qos: .background).async {
+            let testbench = Testbench(config: FileUploadController.config)
+            do {
+                let assignments = try testbench.availableAssignments()
+                promise.succeed(assignments)
+            } catch {
+                promise.fail(error)
+            }
         }
+        
+        return promise.futureResult
     }
 }
+
+extension Assignment: Content {}
