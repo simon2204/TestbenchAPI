@@ -10,15 +10,19 @@ import Testbench
 
 struct FileUploadController: RouteCollection {
     
-    static let testbenchDirectory = URL(
-        fileURLWithPath: "/Users/Simon/Desktop/TestbenchDirectories")
+    let app: Application
     
-    static let config = testbenchDirectory
-        .appendingPathComponent("config.json")
+    var testbenchDirectory: URL {
+        URL(fileURLWithPath: app.directory.resourcesDirectory)
+    }
     
-    static let submission = testbenchDirectory
-        .appendingPathComponent("submission")
+    var config: URL {
+        testbenchDirectory.appendingPathComponent("config.json")
+    }
     
+    var submission: URL {
+        testbenchDirectory.appendingPathComponent("submission")
+    }
     
     func boot(routes: RoutesBuilder) throws {
         let availableTestsRoute = routes.grouped("api", "upload")
@@ -28,7 +32,7 @@ struct FileUploadController: RouteCollection {
     
     func uploadHandler(_ request: Request) throws -> EventLoopFuture<TestResult> {
         let unitTestData = try request.content.decode(UnitTestData.self)
-        let directory = FileUploadController.submission.appendingPathComponent(UUID().uuidString)
+        let directory = submission.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
         
         let future = writeFilesToSubmissionDirectory(
@@ -61,7 +65,7 @@ struct FileUploadController: RouteCollection {
         let promise = request.eventLoop.makePromise(of: TestResult.self)
      
         DispatchQueue.global(qos: .background).async {
-            let testbench = Testbench(config: FileUploadController.config)
+            let testbench = Testbench(config: config)
             
             do {
                 let testResult = try testbench.performTests(

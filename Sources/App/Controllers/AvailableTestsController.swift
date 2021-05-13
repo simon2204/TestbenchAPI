@@ -9,6 +9,19 @@ import Vapor
 import Testbench
 
 struct AvailableTestsController: RouteCollection {
+    let app: Application
+    
+    var testbenchDirectory: URL {
+        URL(fileURLWithPath: app.directory.resourcesDirectory)
+    }
+    
+    var config: URL {
+        testbenchDirectory.appendingPathComponent("config.json")
+    }
+    
+    var submission: URL {
+        testbenchDirectory.appendingPathComponent("submission")
+    }
     
     func boot(routes: RoutesBuilder) throws {
         let availableTestsRoute = routes.grouped("api", "available_tests")
@@ -19,7 +32,7 @@ struct AvailableTestsController: RouteCollection {
         let promise = req.eventLoop.makePromise(of: [Assignment].self)
         
         DispatchQueue.global(qos: .background).async {
-            let testbench = Testbench(config: FileUploadController.config)
+            let testbench = Testbench(config: config)
             do {
                 let assignments = try testbench.availableAssignments()
                 promise.succeed(assignments)
