@@ -6,7 +6,7 @@ public func configure(_ app: Application) throws {
     app.directory.resourcesDirectory = "/home/TestbenchDirectories/"
      
     // enable file middleware
-    app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+    app.middleware.use(FileMiddleware(publicDirectory: app.directory.resourcesDirectory))
     
     // set max body size
     app.routes.defaultMaxBodySize = "10mb"

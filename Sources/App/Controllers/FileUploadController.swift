@@ -9,7 +9,6 @@ import Vapor
 import Testbench
 
 struct FileUploadController: RouteCollection {
-    
     let app: Application
     
     var testbenchDirectory: URL {
